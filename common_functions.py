@@ -19,6 +19,7 @@ from skimage.util import img_as_float
 from skimage import measure
 from scipy import ndimage
 from skimage import filters
+import cv2
 
 class WL:
     def __init__(self,name,step=1):
@@ -42,8 +43,6 @@ class Exp:
     
     def get_last_image(self,wl_ind,pos='',timepoint=1):
         last_ind=int(self.nbtime/self.wl[wl_ind].step-1)*self.wl[wl_ind].step+1
-        if self.nbpos>1:
-            pos='_s1'
         return self.get_image(wl_ind,pos,last_ind)
 
 class Result:
@@ -157,4 +156,113 @@ def circle_points(resolution, center, radius):
 
     return np.array([c, r]).T
 
+# =============================================================================
+# # import the necessary packages
+# import cv2
+# import argparse
+# 
+# # now let's initialize the list of reference point
+# 
+# 
+# def shape_selection(event, x, y, flags, param):
+#     # grab references to the global variables
+#     global ref_point, crop
+# 
+#     # if the left mouse button was clicked, record the starting
+#     # (x, y) coordinates and indicate that cropping is being performed
+#     if event == cv2.EVENT_LBUTTONDOWN:
+#         ref_point = [(x, y)]
+# 
+#     # check to see if the left mouse button was released
+#     elif event == cv2.EVENT_LBUTTONUP:
+#         # record the ending (x, y) coordinates and indicate that
+#         # the cropping operation is finished
+#         ref_point.append((x, y))
+# 
+#         # draw a rectangle around the region of interest
+#         cv2.rectangle(image, ref_point[0], ref_point[1], (0, 255, 0), 2)
+#         cv2.imshow("image", image)
+# 
+# 
+# def input_rectangle(img):
+#     global image
+#     image=img
+#     clone = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+#     cv2.namedWindow("image")
+#     cv2.setMouseCallback("image", shape_selection)
+#        
+#     # keep looping until the 'q' key is pressed
+#     while True:
+#         # display the image and wait for a keypress
+#         cv2.imshow("image", image)
+#         key = cv2.waitKey(1) & 0xFF
+#     
+#         # press 'r' to reset the window
+#         if key == ord("r"):
+#             image = clone.copy()
+#     
+#         # if the 'c' key is pressed, break from the loop
+#         elif key == ord("c"):
+#             break
+#     
+#     # close all open windows
+#     cv2.destroyAllWindows() 
+# 
+# image=np.array(Image.open('test2.tif'))
+# clone = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+# cv2.imshow("image", image)
+# windowName = 'image'
+# rectI = selectinwindow.dragRect
+# selectinwindow.init(rectI, image, windowName, 500, 500)
+# cv2.setMouseCallback(windowName, selectinwindow.dragrect, rectI)
+# rectI.outRect
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+# cv2.waitKey(1)
+# =============================================================================
 
+
+# Making The Blank Image
+# =============================================================================
+# image = np.zeros((512,512,3))
+# drawing = False
+# ref_point=[]
+# =============================================================================
+# Adding Function Attached To Mouse Callback
+# =============================================================================
+# def draw(event,x,y,flags,params):
+#     global ix,iy,drawing
+#     # Left Mouse Button Down Pressed
+#     if event == cv2.EVENT_LBUTTONDOWN:
+#         drawing = True
+#         ref_point.append((x,y))
+#     if event == cv2.EVENT_LBUTTONUP:
+#         if(drawing==True):
+#             #For Drawing Line
+#             #cv2.line(image,pt1=(ix,iy),pt2=(x,y),color=(255,255,255),thickness=3)
+#             ref_point.append((x,y))
+#             # For Drawing Rectangle
+#             cv2.rectangle(image,pt1=ref_point[0],pt2=ref_point[1],color=(255,255,255),thickness=3)
+#     if(event==4):
+#         drawing = False
+# =============================================================================
+
+
+
+# =============================================================================
+# # Making Window For The Image
+# cv2.namedWindow("output", cv2.WINDOW_NORMAL)
+# cv2.imshow("output", image) 
+# #cv2.waitKey(0)
+# 
+# # Adding Mouse CallBack Event
+# cv2.setMouseCallback("output",draw)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+# #cv2.waitKey(1)
+# print(ref_point[0])
+# 
+# plt.imshow(image)
+# 
+# print(np.max(image))
+# =============================================================================
