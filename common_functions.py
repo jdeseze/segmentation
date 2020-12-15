@@ -17,7 +17,6 @@ import skimage.segmentation as seg
 from skimage.transform import resize
 from skimage.util import img_as_float
 from skimage import measure
-import cv2 as cv
 from scipy import ndimage
 from skimage import filters
 
@@ -34,15 +33,39 @@ class Exp:
         self.wl=wl
         self.nbwl=len(wl)
     
-    def get_image(self,wl_ind,pos=''):
-        return Image.open(self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+pos+'_t1.tif')
+    def get_image(self,wl_ind,pos='',timepoint=1):
+        return Image.open(self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+pos+'_t'+str(timepoint)+'.tif')
     
-    def get_first_image(self,wl_ind):
+    def get_first_image(self,wl_ind,pos='',timepoint=1):
+        timepoint=1
+        return self.get_image(wl_ind,pos,timepoint)
+    
+    def get_last_image(self,wl_ind,pos='',timepoint=1):
+        last_ind=int(self.nbtime/self.wl[wl_ind].step-1)*self.wl[wl_ind].step+1
         if self.nbpos>1:
             pos='_s1'
-        else:
-            pos=''
-        return self.get_image(wl_ind,pos)
+        return self.get_image(wl_ind,pos,last_ind)
+
+class Result:
+    def __init__(self, exp,ill=[],noill=[],whole=[]):
+        self.exp=exp
+        self.ill=ill
+        self.noill=noill
+        self.whole=whole
+
+def image_with_seg(img1,contours):
+    fig1 = plt.figure()
+    
+    scalefactor=1
+    #original image
+    a=plt.imshow(resize(img1, (img1.shape[0] // scalefactor, img1.shape[1] // scalefactor)),cmap='gray')
+    #find mask and contour        
+    for contour in contours:
+        a.axes.plot(list(map(int,contour[:, 1]/scalefactor)), list(map(int,contour[:, 0]/scalefactor)), linewidth=2)
+    a.axes.get_xaxis().set_visible(False)
+    a.axes.get_yaxis().set_visible(False)
+    return fig1
+    
 
 def get_exp(filename):
     nb_pos=1
