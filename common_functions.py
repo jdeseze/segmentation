@@ -9,17 +9,14 @@ Created on Fri Dec 11 12:36:33 2020
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
-import matplotlib.pyplot as plt
-import pandas as pd
-from skimage import data
 from sklearn.cluster import KMeans
-import skimage.segmentation as seg
 from skimage.transform import resize
-from skimage.util import img_as_float
 from skimage import measure
 from scipy import ndimage
 from skimage import filters
-import cv2
+import exifread
+from scipy.interpolate import interp1d
+import math
 
 class WL:
     def __init__(self,name,step=1):
@@ -33,38 +30,131 @@ class Exp:
         self.nbtime=nbtime
         self.wl=wl
         self.nbwl=len(wl)
+        if self.nbtime==1:
+            self.timestep=0
+        else:
+            maxwl_ind=min(list(range(self.nbwl)), key=lambda ind:self.wl[ind].step)
+            with open(self.get_image_name(maxwl_ind,timepoint=1), 'rb') as opened:
+                tags = exifread.process_file(opened)
+                time_str=tags['Image DateTime'].values
+                h, m, s = time_str.split(' ')[1].split(':')
+                time1=int(h) * 3600 + int(m) * 60 + float(s)
+            with open(self.get_image_name(maxwl_ind,timepoint=int((nbtime-1)/self.wl[maxwl_ind].step+1)), 'rb') as opened:
+                tags = exifread.process_file(opened)
+                time_str=tags['Image DateTime'].values
+                h, m, s = time_str.split(' ')[1].split(':')
+                time2=int(h) * 3600 + int(m) * 60 + float(s)
+            self.timestep=(time2-time1)/self.nbtime
     
-    def get_image(self,wl_ind,pos='',timepoint=1):
-        return Image.open(self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+pos+'_t'+str(timepoint)+'.tif')
+    def get_image_name(self,wl_ind,pos=1,timepoint=1):
+        if self.nbtime==1:
+            tpstring=''
+        else:
+            tpstring='_t'+str(timepoint)
+        if self.nbpos==1:
+            posstring=''
+        else:
+            posstring='_s'+str(pos)
+        return self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'
     
-    def get_first_image(self,wl_ind,pos='',timepoint=1):
+    def get_first_image(self,wl_ind,pos=1,timepoint=''):
         timepoint=1
-        return self.get_image(wl_ind,pos,timepoint)
+        return Image.open(self.get_image_name(wl_ind,pos,timepoint))
     
-    def get_last_image(self,wl_ind,pos='',timepoint=1):
+    def get_last_image(self,wl_ind,pos=1,timepoint=1):
         last_ind=int(self.nbtime/self.wl[wl_ind].step-1)*self.wl[wl_ind].step+1
-        return self.get_image(wl_ind,pos,last_ind)
+        return Image.open(self.get_image_name(wl_ind,pos,last_ind))
 
 class Result:
-    def __init__(self, exp,ill=[],noill=[],whole=[]):
+    def __init__(self, exp,prot,wl_ind,pos,startacq=0,act=[],notact=[],whole=[]):
         self.exp=exp
-        self.ill=ill
-        self.noill=noill
+        self.prot=prot
+        self.wl_ind=wl_ind
+        self.act=act
+        self.notact=notact
         self.whole=whole
-
-def image_with_seg(img1,contours):
-    fig1 = plt.figure()
+        self.channel=self.exp.wl[wl_ind]
+        self.pos=pos
+        self.startacq=startacq
     
-    scalefactor=1
+    def plot(self,zone='act',plot_options=None):
+        toplot=np.array(self.get_zone(zone))/self.get_zone(zone)[0]
+        if not plot_options:
+            plot_options={}            
+        x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
+        
+        plt.plot(x,toplot,**plot_options)
+    
+    def get_zone(self,zone):
+        if zone=='act':
+            return self.act
+        if zone=='notact':
+            return self.notact
+        if zone=='whole':
+            return self.whole
+    
+        
+class Result_array(list):
+    def __init__(self,data):
+        list.__init__(self,data)
+    
+    def plot(self,zone='act',wl_ind=2,prot=True,plot_options={}):
+        [result.plot(zone,plot_options) for result in self if result.wl_ind==wl_ind and result.prot==prot]    
+    
+    def plot_mean(self,zone='act',wl_ind=2,time_step=15,prot=True,plot_options={}):
+        #time step should be in minutes
+
+        t_start=0
+        t_end=np.min([len(result.get_zone(zone)) for result in self if result.wl_ind==wl_ind and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot])
+        
+        values=[np.array(result.get_zone(zone))/result.get_zone(zone)[0] for result in self if result.wl_ind==wl_ind and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
+        x=np.arange(t_start,t_end)*time_step/60
+        interp=[interp1d(x,yi[t_start:t_end]) for yi in values]
+        y=np.vstack([f(x) for f in interp])
+        
+        ym=np.average(y, axis=0)
+        sigma=np.std(y,axis=0)
+        
+        yh=ym+sigma/(y.shape[0]**0.5)
+        yb=ym-sigma/(y.shape[0]**0.5)
+        
+        #clear_plot(size)
+        
+        plt.plot(x,ym,linewidth=2,**plot_options)
+
+        plt.plot(x,yh,linewidth=0.05,**plot_options)
+        plt.plot(x,yb,linewidth=0.05,**plot_options)
+        plt.fill_between(x,yh,yb,alpha=0.2,**plot_options)
+
+def image_with_seg(img1,contour):
+    fig1,ax = plt.subplot()
     #original image
-    a=plt.imshow(resize(img1, (img1.shape[0] // scalefactor, img1.shape[1] // scalefactor)),cmap='gray')
-    #find mask and contour        
-    for contour in contours:
-        a.axes.plot(list(map(int,contour[:, 1]/scalefactor)), list(map(int,contour[:, 0]/scalefactor)), linewidth=2)
+    a=plt.imshow(img1,cmap='gray')
+    #find mask and contour
+    if contour.any():        
+        a.axes.plot(list(map(int,contour[:, 1])), list(map(int,contour[:, 0])), linewidth=2)
+    a.axes.axis('off')
+    return fig1,ax
+
+def images_with_seg(img1,img2,contour1,contour2):
+    fig1 = plt.figure()
+    #original image
+    #first image
+    plt.subplot(1,2,1)
+    a=plt.imshow(img1,cmap='gray')
+    #find mask and contour
+    if contour1.any():        
+        a.axes.plot(list(map(int,contour1[:, 1])), list(map(int,contour1[:, 0])), linewidth=2)
     a.axes.get_xaxis().set_visible(False)
     a.axes.get_yaxis().set_visible(False)
+    #second image
+    plt.subplot(1,2,2)
+    b=plt.imshow(img2,cmap='gray')
+    if contour2.any():        
+        b.axes.plot(list(map(int,contour2[:, 1])), list(map(int,contour2[:, 0])), linewidth=2)
+    b.axes.get_xaxis().set_visible(False)
+    b.axes.get_yaxis().set_visible(False)
     return fig1
-    
 
 def get_exp(filename):
     nb_pos=1
@@ -123,10 +213,14 @@ def segment_threshold(img,thresh):
     label_img, cc_num = ndimage.label(filled)
     CC = ndimage.find_objects(label_img)
     cc_areas = ndimage.sum(filled, label_img, range(cc_num+1))
-    area_mask = (cc_areas < 10000)
+    area_mask = (cc_areas < max(cc_areas))
     label_img[area_mask[label_img]] = 0
     contours = measure.find_contours(label_img, 0.8)
-    return label_img, contours
+    if len(contours)>0:
+        contour=contours[0]
+    else:
+        contour=np.array([None])
+    return label_img>0, contour
     
 def segment_kmean(image):
     pic=image/255
@@ -144,8 +238,8 @@ def segment_active_contour(image):
     contours = measure.find_contours(img, 0.8)
     fig, ax = image_show(img)
     ax.plot(points[:, 0], points[:, 1], '--r', lw=3)
-    for snake in contours:    
-        ax.plot(snake[:, 0], snake[:, 1], '-b', lw=3);
+    #for snake in contours:    
+    ax.plot(contours[0][:, 0], contours[0][:, 1], '-b', lw=3);
     #return snake
 
 def circle_points(resolution, center, radius):   
@@ -156,113 +250,3 @@ def circle_points(resolution, center, radius):
 
     return np.array([c, r]).T
 
-# =============================================================================
-# # import the necessary packages
-# import cv2
-# import argparse
-# 
-# # now let's initialize the list of reference point
-# 
-# 
-# def shape_selection(event, x, y, flags, param):
-#     # grab references to the global variables
-#     global ref_point, crop
-# 
-#     # if the left mouse button was clicked, record the starting
-#     # (x, y) coordinates and indicate that cropping is being performed
-#     if event == cv2.EVENT_LBUTTONDOWN:
-#         ref_point = [(x, y)]
-# 
-#     # check to see if the left mouse button was released
-#     elif event == cv2.EVENT_LBUTTONUP:
-#         # record the ending (x, y) coordinates and indicate that
-#         # the cropping operation is finished
-#         ref_point.append((x, y))
-# 
-#         # draw a rectangle around the region of interest
-#         cv2.rectangle(image, ref_point[0], ref_point[1], (0, 255, 0), 2)
-#         cv2.imshow("image", image)
-# 
-# 
-# def input_rectangle(img):
-#     global image
-#     image=img
-#     clone = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-#     cv2.namedWindow("image")
-#     cv2.setMouseCallback("image", shape_selection)
-#        
-#     # keep looping until the 'q' key is pressed
-#     while True:
-#         # display the image and wait for a keypress
-#         cv2.imshow("image", image)
-#         key = cv2.waitKey(1) & 0xFF
-#     
-#         # press 'r' to reset the window
-#         if key == ord("r"):
-#             image = clone.copy()
-#     
-#         # if the 'c' key is pressed, break from the loop
-#         elif key == ord("c"):
-#             break
-#     
-#     # close all open windows
-#     cv2.destroyAllWindows() 
-# 
-# image=np.array(Image.open('test2.tif'))
-# clone = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-# cv2.imshow("image", image)
-# windowName = 'image'
-# rectI = selectinwindow.dragRect
-# selectinwindow.init(rectI, image, windowName, 500, 500)
-# cv2.setMouseCallback(windowName, selectinwindow.dragrect, rectI)
-# rectI.outRect
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-# cv2.waitKey(1)
-# =============================================================================
-
-
-# Making The Blank Image
-# =============================================================================
-# image = np.zeros((512,512,3))
-# drawing = False
-# ref_point=[]
-# =============================================================================
-# Adding Function Attached To Mouse Callback
-# =============================================================================
-# def draw(event,x,y,flags,params):
-#     global ix,iy,drawing
-#     # Left Mouse Button Down Pressed
-#     if event == cv2.EVENT_LBUTTONDOWN:
-#         drawing = True
-#         ref_point.append((x,y))
-#     if event == cv2.EVENT_LBUTTONUP:
-#         if(drawing==True):
-#             #For Drawing Line
-#             #cv2.line(image,pt1=(ix,iy),pt2=(x,y),color=(255,255,255),thickness=3)
-#             ref_point.append((x,y))
-#             # For Drawing Rectangle
-#             cv2.rectangle(image,pt1=ref_point[0],pt2=ref_point[1],color=(255,255,255),thickness=3)
-#     if(event==4):
-#         drawing = False
-# =============================================================================
-
-
-
-# =============================================================================
-# # Making Window For The Image
-# cv2.namedWindow("output", cv2.WINDOW_NORMAL)
-# cv2.imshow("output", image) 
-# #cv2.waitKey(0)
-# 
-# # Adding Mouse CallBack Event
-# cv2.setMouseCallback("output",draw)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-# #cv2.waitKey(1)
-# print(ref_point[0])
-# 
-# plt.imshow(image)
-# 
-# print(np.max(image))
-# =============================================================================

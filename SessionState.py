@@ -1,45 +1,6 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Oct 13 10:28:20 2020
-
-@author: Jean
-"""
-
-
-"""Hack to add per-session state to Streamlit.
-Usage
------
->>> import SessionState
->>>
->>> session_state = SessionState.get(user_name='', favorite_color='black')
->>> session_state.user_name
-''
->>> session_state.user_name = 'Mary'
->>> session_state.favorite_color
-'black'
-Since you set user_name above, next time your script runs this will be the
-result:
->>> session_state = get(user_name='', favorite_color='black')
->>> session_state.user_name
-'Mary'
-"""
-try:
-    import streamlit.ReportThread as ReportThread
-    from streamlit.server.Server import Server
-except Exception:
-    # Streamlit >= 0.65.0
-    import streamlit.report_thread as ReportThread
-    from streamlit.server.server import Server
+from streamlit.report_thread import get_report_ctx
+from streamlit.server.server import Server
 from streamlit.hashing import _CodeHasher
-
-try:
-    # Before Streamlit 0.65
-    from streamlit.ReportThread import get_report_ctx
-    from streamlit.server.Server import Server
-except ModuleNotFoundError:
-    # After Streamlit 0.65
-    from streamlit.report_thread import get_report_ctx
-    from streamlit.server.server import Server
 
 class _SessionState:
 
@@ -96,6 +57,7 @@ class _SessionState:
                 self._state["session"].request_rerun()
 
         self._state["hash"] = self._state["hasher"].to_bytes(self._state["data"], None)
+
 
 def _get_session():
     session_id = get_report_ctx().session_id
