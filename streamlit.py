@@ -8,7 +8,6 @@ Created on Tue Dec  8 14:59:11 2020
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib
 from PIL import Image
 import pandas as pd
 from common_functions import *
@@ -16,20 +15,11 @@ from skimage.transform import resize
 import os
 from skimage import filters
 import cv2
-import collections
-import functools
-import inspect
-import textwrap
 from streamlit_drawable_canvas import st_canvas
-from PIL import Image
-from io import BytesIO
 from SessionState import _get_state
-import altair as alt
 import threading
 import pickle
 import copy
-from skimage import exposure
-import time
 
 def main():
     st.set_page_config(page_title="Segmentation", page_icon=":microscope:",layout="wide")
@@ -97,6 +87,7 @@ def page_measures(state):
         state.new_exp=True
         state.temppos=state.pos
         state.tempexpname=state.exp.name
+        state.rgn=None
     
     #decide how many columns should be done       
     try:
@@ -225,7 +216,17 @@ def last_col(state):
     if st.button('Make movies'):
         th=threading.Thread(target=make_all_movies,args=[state]) 
         th.start()
+    
+    #reg=st.file_uploader('Import region')
+    try:
+        rgn_file=file_selector(state.file_dir,extension='.rgn')
+        if st.button('Load region'):
+            
+            state.rgn=rgn
+    except:
+        pass
 
+    
 def save_results(state):
     exp=copy.deepcopy(state.exp)
     if state.draw:
