@@ -20,6 +20,7 @@ from SessionState import _get_state
 import threading
 import pickle
 import copy
+import plotly.express as px
 
 def main():
     st.set_page_config(page_title="Segmentation", page_icon=":microscope:",layout="wide")
@@ -384,6 +385,11 @@ def plot_values(state):
             plot_options={"color":colors[i]}
             res.plot_mean(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
         co[1].pyplot(fig)
+        
+        X,Y=res.xy2plot(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
+        plotly_fig=px.scatter(X,Y)
+        st.plotly_chart(plotly_fig)
+        
 
 def make_canvas(state,i):
     img=np.array(state.exp.get_last_image(i,state.pos))

@@ -17,6 +17,7 @@ from skimage import filters
 import exifread
 from scipy.interpolate import interp1d
 import math
+import plotly.express as px
 
 class WL:
     def __init__(self,name,step=1):
@@ -82,8 +83,16 @@ class Result:
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
-        
         plt.plot(x,toplot,**plot_options)
+        return px.line(x,toplot)
+    
+    def xy2plot(self,zone='act',plot_options=None):
+        toplot=np.array(self.get_zone(zone))/self.get_zone(zone)[0]
+        if not plot_options:
+            plot_options={}            
+        x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
+        plt.plot(x,toplot,**plot_options)
+        return x,toplot     
     
     def get_zone(self,zone):
         if zone=='act':
@@ -100,6 +109,16 @@ class Result_array(list):
     
     def plot(self,zone='act',wl_ind=2,prot=True,plot_options={}):
         [result.plot(zone,plot_options) for result in self if result.wl_ind==wl_ind and result.prot==prot]    
+
+    
+    def xy2plot(self,zone='act',wl_ind=2,prot=True,plot_options={}):
+        X=[]
+        Y=[]
+        for result in self:
+            if result.wl_ind==wl_ind and result.prot==prot:
+                x,y=result.xy2plot(zone,plot_options)            
+                X.append(x)
+                Y.append(Y)
     
     def plot_mean(self,zone='act',wl_ind=2,time_step=15,prot=True,plot_options={}):
         #time step should be in minutes
@@ -160,10 +179,20 @@ def get_exp(filename):
     nb_pos=1
     nb_wl=1
     with open(filename,'r') as file:
-        for i in range(4):
-            file.readline()
+        i=0
         line=file.readline()
-        
+        comments=[]
+        iscomments=False
+        while not line.rstrip().split(', ')[0]=='"NTimePoints"' and i<50:
+            if line.rstrip().split(', ')[0]=='"StartTime1"':
+                iscomments=False
+            if iscomments:
+                comments.append(line.rstrip())
+            if line.rstrip().split(', ')[0]=='"Description"':
+                iscomments=True
+                comments.append(str(line.rstrip().split(', ')[1]))
+            line=file.readline()
+            i+=1
         #get number of timepoints
         nb_tp=int(line.rstrip().split(', ')[1])
         line=file.readline()
