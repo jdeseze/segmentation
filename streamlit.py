@@ -34,15 +34,17 @@ def main():
     with st.sidebar:
         
         page=st.selectbox('Choose page',tuple(pages.keys()))
-        state.file_dir=st.text_input('File directory',"E:/optorhoa/201210_RPE1_optoRhoa_RBDiRFP/")
-        try:
-            state.filename=file_selector(state.file_dir)
-        except:
-            state.filename=None
-            st.write("No such directory or no .nd file in this directory")
         
-        if st.button('Clear state'):
-            state.clear()            
+        with st.beta_expander('Choose experiment'):
+            state.file_dir=st.text_input('File directory',"E:/optorhoa/201210_RPE1_optoRhoa_RBDiRFP/")
+            try:
+                state.filename=file_selector(state.file_dir)
+            except:
+                state.filename=None
+                st.write("No such directory or no .nd file in this directory")
+            
+            if st.button('Clear state'):
+                state.clear()            
     
     if state.resultsfile==None:
         state.resultsfile='./pdresults.pkl'
@@ -64,19 +66,67 @@ def page_measures(state):
     with st.sidebar:
         exp=get_exp(state.filename)
         state.exp=exp
-        st.write("Number of positions : "+str(exp.nbpos))
-        st.write("Number of time steps : "+str(exp.nbtime))
-        st.write("Time step : "+str(exp.timestep)+' sec')
-        state.pos=st.selectbox('Position',range(1,exp.nbpos+1))
         
-        inds=range(exp.nbwl)
+        with st.beta_expander('Experiment'):
+            st.write("Number of positions : "+str(exp.nbpos))
+            st.write("Number of time steps : "+str(exp.nbtime))
+            st.write("Time step : "+str(exp.timestep)+' sec')
+            state.pos=st.selectbox('Position',range(1,exp.nbpos+1))
         
-        state.wl_seg=st.selectbox('Segmentation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='seg')
-        state.coeff_seg=st.slider('Threshold',0.7,1.3,1.0,0.01,key='seg')
+        with st.beta_expander('Segmentation and activation'):
+            inds=range(exp.nbwl)
+            
+            state.coeff_seg=st.slider('Threshold',0.7,1.3,1.0,0.01,key='seg')
+            state.wl_act=st.selectbox('Activation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='act')
+            
+            seg_options=['Import region','Draw rectangle','Segment channel']
+            state.def_rgn=st.selectbox('Segmentation',range(3),format_func=lambda i: seg_options[i])
+            if state.def_rgn==2:
+                state.draw=0
+                state.isrgn=0
+                state.wl_seg=st.selectbox('Segmentation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='seg')
+                state.coeff_act=st.slider('Threshold',0.7,1.3,1.0,0.01,key='act')
+            if state.def_rgn==0:
+                state.draw=0
+                state.isrgn=1
+                try:
+                    rgn_file=file_selector(state.file_dir,extension='.rgn')
+                    if st.button('Load region'):
+                        with open(rgn_file) as file:
+                            line=file.readline().rstrip().split(', ')
+                            x,y=int(line[2].split(' ')[1]),int(line[2].split(' ')[2])
+                            w,l=int(line[6].split(' ')[2]),int(line[6].split(' ')[3])
+                            mask=np.zeros((1024,1024))
+                            mask[y:y+l,x:x+w]=1
+                            state.rgn=mask
+                            contour=np.zeros((1024,1024))
+                            contour[y:y+l,x]=1
+                            contour[y:y+l,x+w]=1
+                            contour[y,x:x+w]=1
+                            contour[y+l,x:x+w]=1
+                            state.rgn_contour=contour
+                            state.isrgn=1
+                except:
+                    pass
+            if state.def_rgn==1:
+                state.draw=1
+                state.isrgn=0
         
-        state.wl_act=st.selectbox('Activation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='act')
-        state.draw=st.checkbox('Draw rectangle')
-        state.coeff_act=st.slider('Threshold',0.7,1.3,1.0,0.01,key='act')
+        with st.beta_expander('Measures and movie'):
+            inds=range(len(state.exp.wl))
+            state.wls_meas=st.multiselect('Measurement channel',inds,format_func=lambda i: state.exp.wl[i].name,key='meas')
+            state.prot=st.checkbox('Makes protrusions?')
+            #st.write(state.wl_meas)
+            if st.button("Compute and save results"):
+                #st.write(int(state.exp.nbtime/state.exp.wl[wl].step)*state.exp.wl[wl].step)
+                threading.Thread(target=save_results,args=[state]).start()    
+            
+            state.crop=st.checkbox('Crop')
+            if st.button('Make movies'):
+                th=threading.Thread(target=make_all_movies,args=[state]) 
+                th.start()
+            
+        
         
 # =============================================================================
 #         debug=st.sidebar.beta_expander("Debug",expanded=False)
@@ -92,7 +142,7 @@ def page_measures(state):
     
     #decide how many columns should be done       
     try:
-        col=list(st.beta_columns(int((len(exp.wl)+1)/2)+1))
+        col=list(st.beta_columns(int((len(exp.wl)+1)/2)))
         state(wlthres=[None]*4)
         state(fig=[None]*4) 
         state(img=[None]*4)
@@ -131,12 +181,14 @@ def page_measures(state):
                 else:
                     st.write(state.exp.wl[i].name)
                     st.image(state.img[i], use_column_width=True)
-    
-        #last column
-        with col[-1]:
-               last_col(state)
-        if st.checkbox('Show table'):     
-            st.write(pd.read_pickle('./pdresults.pkl'))    
+                    
+# =============================================================================
+#         #last column
+#         with col[-1]:
+#                last_col(state)
+#         if st.checkbox('Show table'):     
+#             st.write(pd.read_pickle('./pdresults.pkl'))    
+# =============================================================================
 
 
 def create_image(state,i):
@@ -162,10 +214,16 @@ def create_image(state,i):
     else:
         fig1 = plt.figure()
         plt.subplot(1,2,1)
-        a=plt.imshow(img1,cmap='gray')
+        if state.isrgn:
+            a=plt.imshow(np.multiply(img1,1-state.rgn_contour),cmap='gray')
+        else:
+            a=plt.imshow(img1,cmap='gray')
         a.axes.axis('off')
         plt.subplot(1,2,2)
-        b=plt.imshow(img2,cmap='gray')
+        if state.isrgn:
+            b=plt.imshow(np.multiply(img2,1-state.rgn_contour),cmap='gray')
+        else:
+            b=plt.imshow(img2,cmap='gray')
         b.axes.axis('off')
         plt.tight_layout()
     fig1.savefig('temp_wl_'+str(i)+'.png',bbox_inches="tight")
@@ -203,29 +261,21 @@ def page_results(state):
             with open('results.pkl', 'wb') as output:
                 pickle.dump(results, output, pickle.HIGHEST_PROTOCOL) 
 
-def last_col(state):
-    inds=range(len(state.exp.wl))
-    state.wls_meas=st.multiselect('Measurement channel',inds,format_func=lambda i: state.exp.wl[i].name,key='meas')
-    state.prot=st.checkbox('Makes protrusions?')
-    #st.write(state.wl_meas)
-    if st.button("Compute and save results"):
-        #st.write(int(state.exp.nbtime/state.exp.wl[wl].step)*state.exp.wl[wl].step)
-        threading.Thread(target=save_results,args=[state]).start()    
-
-    
-    state.crop=st.checkbox('Crop')
-    if st.button('Make movies'):
-        th=threading.Thread(target=make_all_movies,args=[state]) 
-        th.start()
-    
-    #reg=st.file_uploader('Import region')
-    try:
-        rgn_file=file_selector(state.file_dir,extension='.rgn')
-        if st.button('Load region'):
-            
-            state.rgn=rgn
-    except:
-        pass
+# =============================================================================
+# def last_col(state):
+#     inds=range(len(state.exp.wl))
+#     state.wls_meas=st.multiselect('Measurement channel',inds,format_func=lambda i: state.exp.wl[i].name,key='meas')
+#     state.prot=st.checkbox('Makes protrusions?')
+#     #st.write(state.wl_meas)
+#     if st.button("Compute and save results"):
+#         #st.write(int(state.exp.nbtime/state.exp.wl[wl].step)*state.exp.wl[wl].step)
+#         threading.Thread(target=save_results,args=[state]).start()    
+#     
+#     state.crop=st.checkbox('Crop')
+#     if st.button('Make movies'):
+#         th=threading.Thread(target=make_all_movies,args=[state]) 
+#         th.start()
+# =============================================================================
 
     
 def save_results(state):
@@ -256,6 +306,8 @@ def save_results(state):
                 mask_seg=calculate_segmentation(exp,coeff_seg,wl_seg,pos,tseg)
                 if state.draw:
                     mask_act=np.array(Image.fromarray(exp.mask_act).resize((img.shape[0],img.shape[1])))>0
+                elif state.isrgn:
+                    mask_act=state.rgn
                 else:
                     mask_act=calculate_segmentation(exp,coeff_act,wl_act,pos,tact)
                 whole_int=np.sum(img[mask_seg>0])
