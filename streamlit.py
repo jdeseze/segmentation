@@ -95,7 +95,8 @@ def page_measures(state):
                             line=file.readline().rstrip().split(', ')
                             x,y=int(line[2].split(' ')[1]),int(line[2].split(' ')[2])
                             w,l=int(line[6].split(' ')[2]),int(line[6].split(' ')[3])
-                            mask=np.zeros((1024,1024))
+                            size_img=exp.get_sizeimg()
+                            mask=np.zeros(size_img)
                             mask[y:y+l,x:x+w]=1
                             state.rgn=mask
                             contour=np.zeros((1024,1024))
@@ -200,8 +201,8 @@ def create_image(state,i):
         coeff=state.coeff_seg
 
         #threshold
-        filtered1=filters.median(img1.astype(np.uint8))
-        filtered2=filters.median(img2.astype(np.uint8))
+        filtered1=filters.median(img1)
+        filtered2=filters.median(img2)
         thresh1 = filters.threshold_otsu(filtered1)
         thresh2 = filters.threshold_otsu(filtered2)
         #if not st.checkbox("Last frame",key=i):
