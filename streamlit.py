@@ -77,7 +77,7 @@ def page_measures(state):
             inds=range(exp.nbwl)
             
             state.wl_seg=st.selectbox('Segmentation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='seg')
-            state.coeff_seg=st.slider('Threshold',0,5,1.0,0.01,key='seg')
+            state.coeff_seg=st.slider('Threshold',0.7,1.3,1.0,0.01,key='seg')
             
             seg_options=['Import region','Draw rectangle','Segment channel']
             state.def_rgn=st.selectbox('Activation region',range(3),format_func=lambda i: seg_options[i])

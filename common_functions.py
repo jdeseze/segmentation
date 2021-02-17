@@ -235,7 +235,7 @@ def image_show(image, nrows=1, ncols=1, cmap='gray'):
     return fig, ax
 
 def segment_threshold(img,thresh):
-    img=img.astype(np.uint8)
+    #img=(img/2^8).astype(np.uint8)
     binary = img > thresh
     dil=ndimage.binary_dilation(binary,iterations=2)
     filled=ndimage.binary_fill_holes(dil).astype(int)
