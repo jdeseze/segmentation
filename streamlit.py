@@ -88,7 +88,6 @@ def page_measures(state):
                 state.coeff_act=st.slider('Threshold',0.7,1.3,1.0,0.01,key='act')
             if state.def_rgn==0:
                 state.draw=0
-                state.isrgn=1
                 try:
                     rgn_file=file_selector(state.file_dir,extension='.rgn')
                     if st.button('Load region'):
@@ -197,8 +196,9 @@ def create_image(state,i):
     img1=np.array(state.exp.get_first_image(i,state.pos))
     img2=np.array(state.exp.get_last_image(i,state.pos))
         
-    if (state.wl_seg==i) or (state.wl_act==i):
-        coeff=(state.wl_seg==i)*state.coeff_seg+(state.wl_act==i)*state.coeff_act
+    if (state.wl_seg==i):
+        coeff=state.coeff_seg
+
         #threshold
         filtered1=filters.median(img1.astype(np.uint8))
         filtered2=filters.median(img2.astype(np.uint8))
