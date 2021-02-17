@@ -286,7 +286,7 @@ def save_results(state):
     prot=state.prot
     pos=state.pos
     stepseg=exp.wl[state.wl_seg].step
-    stepact=exp.wl[state.wl_act].step
+    
     pos, coeff_seg, coeff_act, wl_seg, wl_act, resultsfile=state.pos, state.coeff_seg, state.coeff_act, state.wl_seg, state.wl_act,state.resultsfile
     for wl_meas in wls_meas:
         whole=[]
@@ -309,6 +309,7 @@ def save_results(state):
                 elif state.isrgn:
                     mask_act=state.rgn
                 else:
+                    stepact=exp.wl[state.wl_act].step
                     mask_act=calculate_segmentation(exp,coeff_act,wl_act,pos,tact)
                 whole_int=np.sum(img[mask_seg>0])
                 whole_surf=np.sum(mask_seg>0)
