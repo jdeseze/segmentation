@@ -301,7 +301,7 @@ def save_results(state):
             #define the good frame to take for each segmentation or activation
             timg=i*stepmeas+1
             tseg=int(i*stepmeas/stepseg)*stepseg+1
-            tact=int(i*stepmeas/stepact)*stepact+1
+            
             try:
                 img=np.array(Image.open(exp.get_image_name(wl_meas,pos,timg)))
                 mask_seg=calculate_segmentation(exp,coeff_seg,wl_seg,pos,tseg)
@@ -311,6 +311,7 @@ def save_results(state):
                     mask_act=state.rgn
                 else:
                     stepact=exp.wl[state.wl_act].step
+                    tact=int(i*stepmeas/stepact)*stepact+1
                     mask_act=calculate_segmentation(exp,coeff_act,wl_act,pos,tact)
                 whole_int=np.sum(img[mask_seg>0])
                 whole_surf=np.sum(mask_seg>0)
