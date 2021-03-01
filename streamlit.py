@@ -79,35 +79,31 @@ def page_measures(state):
             state.wl_seg=st.selectbox('Segmentation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='seg')
             state.coeff_seg=st.slider('Threshold',0.7,1.3,1.0,0.01,key='seg')
             
-            seg_options=['Import region','Draw rectangle','Segment channel']
-            state.def_rgn=st.selectbox('Activation region',range(3),format_func=lambda i: seg_options[i])
-            if state.def_rgn==2:
-                state.draw=0
-                state.isrgn=0
-                state.wl_act=st.selectbox('Activation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='act')
-                state.coeff_act=st.slider('Threshold',0.7,1.3,1.0,0.01,key='act')
+            seg_options=['Import region','Draw rectangle']
+            state.def_rgn=st.selectbox('Activation region',range(2),format_func=lambda i: seg_options[i])
             if state.def_rgn==0:
                 state.draw=0
                 try:
                     rgn_file=file_selector(state.file_dir,extension='.rgn')
-                    if st.button('Load region'):
-                        with open(rgn_file) as file:
-                            line=file.readline().rstrip().split(', ')
-                            x,y=int(line[2].split(' ')[1]),int(line[2].split(' ')[2])
-                            w,l=int(line[6].split(' ')[2]),int(line[6].split(' ')[3])
-                            size_img=exp.get_sizeimg()
-                            mask=np.zeros(size_img)
-                            mask[y:y+l,x:x+w]=1
-                            state.rgn=mask
-                            contour=np.zeros((1024,1024))
-                            contour[y:y+l,x]=1
-                            contour[y:y+l,x+w]=1
-                            contour[y,x:x+w]=1
-                            contour[y+l,x:x+w]=1
-                            state.rgn_contour=contour
-                            state.isrgn=1
                 except:
                     pass
+                if st.button('Load region'):
+                    with open(rgn_file) as file:
+                        line=file.readline().rstrip().split(', ')
+                        x,y=int(line[2].split(' ')[1]),int(line[2].split(' ')[2])
+                        w,l=int(line[6].split(' ')[2]),int(line[6].split(' ')[3])
+                        size_img=exp.get_sizeimg()
+                        mask=np.zeros(size_img)
+                        mask[y:y+l,x:x+w]=1
+                        state.rgn=mask
+                        contour=np.zeros(size_img)
+                        contour[y:y+l,x]=1
+                        contour[y:y+l,x+w]=1
+                        contour[y,x:x+w]=1
+                        contour[y+l,x:x+w]=1
+                        state.rgn_contour=contour
+                        state.isrgn=1
+                        state.new_exp=True
             if state.def_rgn==1:
                 state.draw=1
                 state.isrgn=0
@@ -243,24 +239,25 @@ def page_results(state):
             pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)                    
 
     filenametosave=st.text_input('Filename')
+    st.write(state.file_dir.replace("\\","/"))
     if st.button('Save datas'):
         with open('./results.pkl', 'rb') as output:
             results=pickle.load(output)
-        with open(state.file_dir+filenametosave+'_obj.pkl', 'wb') as output:
-            pickle.dump(results, output, pickle.HIGHEST_PROTOCOL)    
+        with open(state.file_dir.replace("\\","/")+'/'+filenametosave+'_obj.pkl', 'wb') as output:
+            pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL)    
     
     co=list(st.beta_columns(2))
     try:
         file_to_upload=file_selector(state.file_dir,extension='.pkl')
     except:
         file_to_upload=None
-        "No such directory or no .nd file in this directory"
+        "No such directory or no .pkl file in this directory"
     if file_to_upload is not None:
         if st.button('Load these results'):
             with open(file_to_upload, 'rb') as output:
                 results=pickle.load(output)           
-            with open('results.pkl', 'wb') as output:
-                pickle.dump(results, output, pickle.HIGHEST_PROTOCOL) 
+            with open('./results.pkl', 'wb') as output:
+                pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL) 
 
 # =============================================================================
 # def last_col(state):
@@ -281,13 +278,14 @@ def page_results(state):
     
 def save_results(state):
     exp=copy.deepcopy(state.exp)
-    if state.draw:
-        mask_act=state.mask_act
     wls_meas=state.wls_meas
     prot=state.prot
     pos=state.pos
     stepseg=exp.wl[state.wl_seg].step
-    
+    if state.draw:
+        mask_act=np.array(Image.fromarray(state.mask_act).resize((img.shape[0],img.shape[1])))>0
+    else:
+        mask_act=copy.deepcopy(state.rgn)
     pos, coeff_seg, coeff_act, wl_seg, wl_act, resultsfile=state.pos, state.coeff_seg, state.coeff_act, state.wl_seg, state.wl_act,state.resultsfile
     for wl_meas in wls_meas:
         whole=[]
@@ -301,18 +299,9 @@ def save_results(state):
             #define the good frame to take for each segmentation or activation
             timg=i*stepmeas+1
             tseg=int(i*stepmeas/stepseg)*stepseg+1
-            
             try:
                 img=np.array(Image.open(exp.get_image_name(wl_meas,pos,timg)))
                 mask_seg=calculate_segmentation(exp,coeff_seg,wl_seg,pos,tseg)
-                if state.draw:
-                    mask_act=np.array(Image.fromarray(exp.mask_act).resize((img.shape[0],img.shape[1])))>0
-                elif state.isrgn:
-                    mask_act=state.rgn
-                else:
-                    stepact=exp.wl[state.wl_act].step
-                    tact=int(i*stepmeas/stepact)*stepact+1
-                    mask_act=calculate_segmentation(exp,coeff_act,wl_act,pos,tact)
                 whole_int=np.sum(img[mask_seg>0])
                 whole_surf=np.sum(mask_seg>0)
                 act_int=np.sum(img[(mask_act>0)*(mask_seg>0)])
@@ -441,9 +430,11 @@ def plot_values(state):
             res.plot_mean(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
         co[1].pyplot(fig)
         
-        X,Y=res.xy2plot(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
-        plotly_fig=px.scatter(X,Y)
-        st.plotly_chart(plotly_fig)
+# =============================================================================
+#         X,Y=res.xy2plot(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
+#         plotly_fig=px.scatter(X,Y)
+#         st.plotly_chart(plotly_fig)
+# =============================================================================
         
 
 def make_canvas(state,i):

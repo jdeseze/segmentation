@@ -25,7 +25,7 @@ class WL:
         self.step=step
 
 class Exp:
-    def __init__(self,expname,wl=[],nbpos=1,nbtime=1,size_img=(1024,1024)):
+    def __init__(self,expname,wl=[],nbpos=1,nbtime=1):
         self.name=expname
         self.nbpos=nbpos
         self.nbtime=nbtime
@@ -67,7 +67,7 @@ class Exp:
         return Image.open(self.get_image_name(wl_ind,pos,last_ind))
     
     def get_sizeimg(self):
-        return self.get_first_image(self,0).size
+        return self.get_first_image(0).size
 
 class Result:
     def __init__(self, exp,prot,wl_ind,pos,startacq=0,act=[],notact=[],whole=[]):
