@@ -110,8 +110,8 @@ class Result_array(list):
     def __init__(self,data):
         list.__init__(self,data)
     
-    def plot(self,zone='act',wl_ind=2,prot=True,plot_options={}):
-        [result.plot(zone,plot_options) for result in self if result.wl_ind==wl_ind and result.prot==prot]    
+    def plot(self,zone='act',wl_name="TIRF 561",prot=True,plot_options={}):
+        [result.plot(zone,plot_options) for result in self if result.channel.name==wl_name and result.prot==prot]    
 
     
     def xy2plot(self,zone='act',wl_ind=2,prot=True,plot_options={}):
@@ -123,13 +123,13 @@ class Result_array(list):
                 X.append(x)
                 Y.append(Y)
     
-    def plot_mean(self,zone='act',wl_ind=2,time_step=15,prot=True,plot_options={}):
+    def plot_mean(self,zone='act',wl_name="TIRF 561",time_step=15,prot=True,plot_options={}):
         #time step should be in minutes
 
         t_start=0
-        t_end=np.min([len(result.get_zone(zone)) for result in self if result.wl_ind==wl_ind and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot])
+        t_end=np.min([len(result.get_zone(zone)) for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot])
         
-        values=[np.array(result.get_zone(zone))/result.get_zone(zone)[0] for result in self if result.wl_ind==wl_ind and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
+        values=[np.array(result.get_zone(zone))/result.get_zone(zone)[0] for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
         x=np.arange(t_start,t_end)*time_step/60
         interp=[interp1d(x,yi[t_start:t_end]) for yi in values]
         y=np.vstack([f(x) for f in interp])

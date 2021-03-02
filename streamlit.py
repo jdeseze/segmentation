@@ -396,13 +396,13 @@ def plot_values(state):
         results=pickle.load(output)
     
     co=list(st.beta_columns(2))
-    inds=range(len(state.exp.wl))
-    chan=co[0].selectbox('Channels to plot',inds,format_func=lambda i: state.exp.wl[i].name,key='toplot')
+    chans=[state.exp.wl[i].name for i in range(len(state.exp.wl))]
+    chan=co[0].selectbox('Channels to plot',chans,key='toplot')
     zones=co[1].multiselect('Zones to plot',['act','notact','whole'])
     pro=['Retracting','Protruding']
     prot=co[1].selectbox('Protruding or retracting',[0,1],format_func=lambda i:pro[i]) 
 
-    results_string=[result.exp.name.split('/')[-1]+' : pos '+str(result.pos) for result in results if result.wl_ind==chan and result.prot==prot]
+    results_string=[result.exp.name.split('/')[-1]+' : pos '+str(result.pos) for result in results if result.channel.name==chan and result.prot==prot]
     results_name=[result.exp.name+str(result.pos) for result in results if result.wl_ind==chan and result.prot==prot]
     expe=co[0].multiselect('Experiments not to plot',range(len(results_string)),format_func=lambda i:results_string[i])
     expe_name=[results_name[i] for i in expe]
@@ -418,7 +418,7 @@ def plot_values(state):
         colors=['blue','red','green']
         for i in range(len(zones)):
             plot_options={"color":colors[i]}
-            res.plot(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
+            res.plot(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
         co[0].pyplot(fig)
         fig, ax = plt.subplots()
         ax.spines["top"].set_visible(False)    
@@ -427,7 +427,7 @@ def plot_values(state):
         ax.spines["left"].set_visible(True) 
         for i in range(len(zones)):
             plot_options={"color":colors[i]}
-            res.plot_mean(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
+            res.plot_mean(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
         co[1].pyplot(fig)
         
 # =============================================================================
