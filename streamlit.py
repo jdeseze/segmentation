@@ -163,11 +163,13 @@ def page_measures(state):
                     state.tempcoeff_seg=state.coeff_seg
                     #storing the image to be opened faster afterwards
                     state.img[i]=Image.open('temp_wl_'+str(i)+'.png')
-                if (not state.tempcoeff_act==state.coeff_act) and (i==state.wl_act) and (not state.draw):
-                    create_image(state,i)
-                    state.tempcoeff_act=state.coeff_act
-                    #storing the image to be opened faster afterwards
-                    state.img[i]=Image.open('temp_wl_'+str(i)+'.png')         
+# =============================================================================
+#                 if (not state.tempcoeff_act==state.coeff_act) and (i==state.wl_act) and (not state.draw):
+#                     create_image(state,i)
+#                     state.tempcoeff_act=state.coeff_act
+#                     #storing the image to be opened faster afterwards
+#                     state.img[i]=Image.open('temp_wl_'+str(i)+'.png')         
+# =============================================================================
             
             
             #displaying intermediate columns
@@ -185,47 +187,20 @@ def page_measures(state):
 #         if st.checkbox('Show table'):     
 #             st.write(pd.read_pickle('./pdresults.pkl'))    
 # =============================================================================
-
-
-def create_image(state,i):
-
-
-    img1=np.array(state.exp.get_first_image(i,state.pos))
-    img2=np.array(state.exp.get_last_image(i,state.pos))
-        
-    if (state.wl_seg==i):
-        coeff=state.coeff_seg
-
-        #threshold
-        filtered1=filters.median(img1)
-        filtered2=filters.median(img2)
-        thresh1 = filters.threshold_otsu(filtered1)
-        thresh2 = filters.threshold_otsu(filtered2)
-        #if not st.checkbox("Last frame",key=i):
-        #find mask and contour        
-        mask1, contour1=segment_threshold(filtered1,coeff*thresh1)
-        mask2, contour2=segment_threshold(filtered2,coeff*thresh2)
-        fig1=images_with_seg(img1,img2,contour1,contour2)
-        plt.tight_layout()
-
-    else:
-        fig1 = plt.figure()
-        plt.subplot(1,2,1)
-        if state.isrgn:
-            a=plt.imshow(np.multiply(img1,1-state.rgn_contour),cmap='gray')
-        else:
-            a=plt.imshow(img1,cmap='gray')
-        a.axes.axis('off')
-        plt.subplot(1,2,2)
-        if state.isrgn:
-            b=plt.imshow(np.multiply(img2,1-state.rgn_contour),cmap='gray')
-        else:
-            b=plt.imshow(img2,cmap='gray')
-        b.axes.axis('off')
-        plt.tight_layout()
-    fig1.savefig('temp_wl_'+str(i)+'.png',bbox_inches="tight")
-
 def page_results(state):
+    
+    try:
+        file_to_upload=file_selector(state.file_dir,extension='.pkl')
+    except:
+        file_to_upload=None
+        "No such directory or no .pkl file in this directory"
+    if file_to_upload is not None:
+        if st.button('Load these results'):
+            with open(file_to_upload, 'rb') as output:
+                results=pickle.load(output)           
+            with open('./results.pkl', 'wb') as output:
+                pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL) 
+    
     plot_values(state)        
     
     co=list(st.beta_columns(2))
@@ -246,18 +221,45 @@ def page_results(state):
         with open(state.file_dir.replace("\\","/")+'/'+filenametosave+'_obj.pkl', 'wb') as output:
             pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL)    
     
-    co=list(st.beta_columns(2))
-    try:
-        file_to_upload=file_selector(state.file_dir,extension='.pkl')
-    except:
-        file_to_upload=None
-        "No such directory or no .pkl file in this directory"
-    if file_to_upload is not None:
-        if st.button('Load these results'):
-            with open(file_to_upload, 'rb') as output:
-                results=pickle.load(output)           
-            with open('./results.pkl', 'wb') as output:
-                pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL) 
+
+def create_image(state,i):
+
+    img1=np.array(state.exp.get_first_image(i,state.pos))
+    img2=np.array(state.exp.get_last_image(i,state.pos))
+        
+    if (state.wl_seg==i):
+        coeff=state.coeff_seg
+
+        #threshold
+        filtered1=filters.median(img1)
+        filtered2=filters.median(img2)
+        thresh1 = filters.threshold_otsu(filtered1)
+        thresh2 = filters.threshold_otsu(filtered2)
+        #if not st.checkbox("Last frame",key=i):
+        #find mask and contour        
+        mask1, contour1=segment_threshold(filtered1,coeff*thresh1)
+        mask2, contour2=segment_threshold(filtered2,coeff*thresh1)
+        fig1=images_with_seg(img1,img2,contour1,contour2)
+        plt.tight_layout()
+
+    else:
+        fig1 = plt.figure()
+        plt.subplot(1,2,1)
+        if state.isrgn:
+            a=plt.imshow(np.multiply(img1,1-state.rgn_contour),cmap='gray')
+        else:
+            a=plt.imshow(img1,cmap='gray')
+        a.axes.axis('off')
+        plt.subplot(1,2,2)
+        if state.isrgn:
+            b=plt.imshow(np.multiply(img2,1-state.rgn_contour),cmap='gray')
+        else:
+            b=plt.imshow(img2,cmap='gray')
+        b.axes.axis('off')
+        plt.tight_layout()
+    fig1.savefig('temp_wl_'+str(i)+'.png',bbox_inches="tight")
+
+
 
 # =============================================================================
 # def last_col(state):
@@ -281,11 +283,13 @@ def save_results(state):
     wls_meas=state.wls_meas
     prot=state.prot
     pos=state.pos
+    coeff=state.coeff_seg
     stepseg=exp.wl[state.wl_seg].step
     if state.draw:
         mask_act=np.array(Image.fromarray(state.mask_act).resize((img.shape[0],img.shape[1])))>0
     else:
         mask_act=copy.deepcopy(state.rgn)
+        
     pos, coeff_seg, coeff_act, wl_seg, wl_act, resultsfile=state.pos, state.coeff_seg, state.coeff_act, state.wl_seg, state.wl_act,state.resultsfile
     for wl_meas in wls_meas:
         whole=[]
@@ -294,35 +298,44 @@ def save_results(state):
         result=Result(exp,prot,wl_meas,pos)
         stepmeas=exp.wl[wl_meas].step
         nb_img=int(exp.nbtime/stepmeas)
+        img4thresh=np.array(Image.open(exp.get_image_name(wl_seg,pos,1)))
+        filtered4thresh=filters.median(img4thresh)
+        thresh = filters.threshold_otsu(filtered4thresh)
         
         for i in range(nb_img):
             #define the good frame to take for each segmentation or activation
             timg=i*stepmeas+1
             tseg=int(i*stepmeas/stepseg)*stepseg+1
-            try:
-                img=np.array(Image.open(exp.get_image_name(wl_meas,pos,timg)))
-                mask_seg=calculate_segmentation(exp,coeff_seg,wl_seg,pos,tseg)
-                whole_int=np.sum(img[mask_seg>0])
-                whole_surf=np.sum(mask_seg>0)
-                act_int=np.sum(img[(mask_act>0)*(mask_seg>0)])
-                act_surf=np.sum((mask_act>0)*(mask_seg>0))
-                whole.append(whole_int/whole_surf)
-                act.append(act_int/act_surf)
-                notact.append((whole_int-act_int)/(whole_surf-act_surf))
-            except:
-                whole.append(0)
+            #calculate mask of segmentation
+            img2seg=np.array(Image.open(exp.get_image_name(wl_seg,pos,tseg)))
+            filtered=filters.median(img2seg)
+            mask_seg, contours=segment_threshold(filtered,coeff*thresh)  
+            
+            #take values in current image
+            img=np.array(Image.open(exp.get_image_name(wl_meas,pos,timg)))
+            whole_int=np.sum(img[mask_seg>0])
+            whole_surf=np.sum(mask_seg>0)
+            act_int=np.sum(img[(mask_act>0)*(mask_seg>0)])
+            act_surf=np.sum((mask_act>0)*(mask_seg>0))
+            #print(np.sum((mask_act>0)*(mask_seg>0)))
+            if i==0:
+                background=np.mean(img[0:20,0:20])
+            whole.append(whole_int/whole_surf)
+            notact.append((whole_int-act_int)/(whole_surf-act_surf))
+            if act_surf==0:
                 act.append(0)
-                notact.append(0)
-        result.whole, result.act, result.notact=whole,act,notact    
-        npwhole=np.array(whole)/whole[0]
-        npact=np.array(act)/act[0]
-        npnotact=np.array(notact)/notact[0]
+            else:
+                act.append(act_int/act_surf)
+        result.whole, result.act, result.notact, result.background =whole,act,notact,background  
+        npwhole=(np.array(whole)-background)/whole[0]
+        npact=(np.array(act)-background)/act[0]
+        npnotact=(np.array(notact)-background)/notact[0]
         #put into pd dataframe
         current_resultpd=pd.DataFrame(np.array([npwhole,npact,npnotact]).transpose())
         resultspd=pd.read_pickle('./pdresults.pkl')
         new_resultspd=pd.concat([resultspd,current_resultpd], ignore_index=True, axis=1)
         new_resultspd.to_pickle('./pdresults.pkl')
-        
+        print("done")
         #add to the list of results
         with open('./results.pkl', 'rb') as output:
             results=pickle.load(output)
@@ -373,13 +386,6 @@ def improve_contrast(img,mini,maxi):
     eq[eq>255]=255
     return np.uint8(eq)
 
-def calculate_segmentation(exp,coeff,wl_ind,pos,t):
-    img=np.array(Image.open(exp.get_image_name(wl_ind,pos,t)))
-    filtered=filters.median(img.astype(np.uint8))
-    thresh = filters.threshold_otsu(filtered)
-    mask, contours=segment_threshold(filtered,coeff*thresh)
-        
-    return mask
 
 def load_image(filename):
     image = cv2.imread(filename).astype(np.uint8)

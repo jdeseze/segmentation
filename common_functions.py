@@ -70,7 +70,7 @@ class Exp:
         return self.get_first_image(0).size
 
 class Result:
-    def __init__(self, exp,prot,wl_ind,pos,startacq=0,act=[],notact=[],whole=[]):
+    def __init__(self, exp,prot,wl_ind,pos,startacq=0,act=[],notact=[],whole=[],background=0):
         self.exp=exp
         self.prot=prot
         self.wl_ind=wl_ind
@@ -80,9 +80,12 @@ class Result:
         self.channel=self.exp.wl[wl_ind]
         self.pos=pos
         self.startacq=startacq
+        self.background=background
     
     def plot(self,zone='act',plot_options=None):
-        toplot=np.array(self.get_zone(zone))/self.get_zone(zone)[0]
+        toplot=np.array(self.get_zone(zone))
+        toplot[toplot==0]=math.nan
+        toplot=(toplot-self.background)/(self.get_zone(zone)[0]-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
@@ -127,9 +130,16 @@ class Result_array(list):
         #time step should be in minutes
 
         t_start=0
-        t_end=np.min([len(result.get_zone(zone)) for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot])
-        
-        values=[np.array(result.get_zone(zone))/result.get_zone(zone)[0] for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
+        t_end=len(self[0].get_zone(zone))
+        for result in self:
+            if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot:
+                values=result.get_zone(zone)
+                if sum(np.array(values)==0)>0:
+                    t_endtemp=values.index(next(filter(lambda x: x==0, values)))
+                    if t_endtemp<t_end:
+                        t_end=t_endtemp
+
+        values=[(np.array(result.get_zone(zone))-result.background)/(result.get_zone(zone)[0]-result.background) for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
         x=np.arange(t_start,t_end)*time_step/60
         interp=[interp1d(x,yi[t_start:t_end]) for yi in values]
         y=np.vstack([f(x) for f in interp])
