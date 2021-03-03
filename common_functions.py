@@ -18,6 +18,7 @@ import exifread
 from scipy.interpolate import interp1d
 import math
 import plotly.express as px
+import plotly.graph_objects as go
 
 class WL:
     def __init__(self,name,step=1):
@@ -85,20 +86,27 @@ class Result:
     def plot(self,zone='act',plot_options=None):
         toplot=np.array(self.get_zone(zone))
         toplot[toplot==0]=math.nan
-        toplot=(toplot-self.background)/(self.get_zone(zone)[0]-self.background)
+        toplot=(toplot-self.background)/(np.mean(toplot[0:5])-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
         plt.plot(x,toplot,**plot_options)
-        return px.line(x,toplot)
+        return x,toplot#go.Scatter(x=x,y=toplot,mode='lines')
+    
+    def get_abs_val(self,zone='act'):
+        toplot=np.array(self.get_zone(zone))
+        toplot[toplot==0]=math.nan
+        abs_value=np.mean(toplot[0:5])-self.background      
+        return abs_value
     
     def xy2plot(self,zone='act',plot_options=None):
-        toplot=np.array(self.get_zone(zone))/self.get_zone(zone)[0]
+        toplot=np.array(self.get_zone(zone))
+        toplot[toplot==0]=math.nan
+        toplot=(toplot-self.background)/(np.mean(toplot[0:5])-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
-        plt.plot(x,toplot,**plot_options)
-        return x,toplot     
+        return x,toplot#go.Scatter(x=x,y=toplot,mode='lines')   
     
     def get_zone(self,zone):
         if zone=='act':
@@ -117,14 +125,16 @@ class Result_array(list):
         [result.plot(zone,plot_options) for result in self if result.channel.name==wl_name and result.prot==prot]    
 
     
-    def xy2plot(self,zone='act',wl_ind=2,prot=True,plot_options={}):
-        X=[]
-        Y=[]
-        for result in self:
-            if result.wl_ind==wl_ind and result.prot==prot:
-                x,y=result.xy2plot(zone,plot_options)            
-                X.append(x)
-                Y.append(Y)
+    def xy2plot(self,zone='act',wl_name="TIRF 561",prot=True):
+        toplot=[]
+        zones=np.array(['act','notact','whole'])
+        colors=np.array(['blue','red','green'])
+        for res in self:
+            if res.channel.name==wl_name and res.prot==prot:
+                x,y=res.xy2plot(zone)            
+                toplot.append(go.Scatter(x=x,y=y,mode='lines',line_color=colors[zones==zone][0],name=str(res.exp.nbpos)))
+        
+        return toplot
     
     def plot_mean(self,zone='act',wl_name="TIRF 561",time_step=15,prot=True,plot_options={}):
         #time step should be in minutes
@@ -139,7 +149,7 @@ class Result_array(list):
                     if t_endtemp<t_end:
                         t_end=t_endtemp
 
-        values=[(np.array(result.get_zone(zone))-result.background)/(result.get_zone(zone)[0]-result.background) for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
+        values=[(np.array(result.get_zone(zone))-result.background)/(np.mean(np.array(result.get_zone(zone))[0:5])-result.background) for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
         x=np.arange(t_start,t_end)*time_step/60
         interp=[interp1d(x,yi[t_start:t_end]) for yi in values]
         y=np.vstack([f(x) for f in interp])

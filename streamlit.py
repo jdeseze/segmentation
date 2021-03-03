@@ -21,6 +21,8 @@ import threading
 import pickle
 import copy
 import plotly.express as px
+import plotly.graph_objects as go
+import plotly.offline as py
 
 def main():
     st.set_page_config(page_title="Segmentation", page_icon=":microscope:",layout="wide")
@@ -409,7 +411,7 @@ def plot_values(state):
     prot=co[1].selectbox('Protruding or retracting',[0,1],format_func=lambda i:pro[i]) 
 
     results_string=[result.exp.name.split('/')[-1]+' : pos '+str(result.pos) for result in results if result.channel.name==chan and result.prot==prot]
-    results_name=[result.exp.name+str(result.pos) for result in results if result.wl_ind==chan and result.prot==prot]
+    results_name=[result.exp.name+str(result.pos) for result in results if result.channel.name==chan and result.prot==prot]
     expe=co[0].multiselect('Experiments not to plot',range(len(results_string)),format_func=lambda i:results_string[i])
     expe_name=[results_name[i] for i in expe]
     
@@ -436,11 +438,17 @@ def plot_values(state):
             res.plot_mean(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
         co[1].pyplot(fig)
         
-# =============================================================================
-#         X,Y=res.xy2plot(zone=zones[i],wl_ind=chan,prot=prot,plot_options=plot_options)
-#         plotly_fig=px.scatter(X,Y)
-#         st.plotly_chart(plotly_fig)
-# =============================================================================
+        plotly_fig=go.Figure()
+        for i in range(len(zones)):
+            toplot=res.xy2plot(zone=zones[i],wl_name=chan,prot=prot)
+            for trace in toplot:
+                plotly_fig.add_trace(trace)
+
+        plotly_fig.update_layout(plot_bgcolor='rgb(255,255,255)',legend_itemclick='toggle')
+        plotly_fig.update_xaxes(showgrid=True,visible=True,color='rgb(0,0,0)')
+        plotly_fig.update_yaxes(showgrid=False,visible=True,color='rgb(0,0,0)')
+
+        st.plotly_chart(plotly_fig)
         
 
 def make_canvas(state,i):
