@@ -79,7 +79,7 @@ def page_measures(state):
             inds=range(exp.nbwl)
             
             state.wl_seg=st.selectbox('Segmentation channel',inds,format_func=lambda i: state.exp.wl[i].name,key='seg')
-            state.coeff_seg=st.slider('Threshold',0.7,1.3,1.0,0.01,key='seg')
+            state.coeff_seg=st.slider('Threshold',0.5,1.5,1.0,0.01,key='seg')
             
             seg_options=['Import region','Draw rectangle']
             state.def_rgn=st.selectbox('Activation region',range(2),format_func=lambda i: seg_options[i])
@@ -176,7 +176,7 @@ def page_measures(state):
             
             #displaying intermediate columns
             with col[int(i/2)]:
-                if state.draw and (i==state.wl_act):
+                if state.draw and (i==3):
                     make_canvas(state,i)
                 else:
                     st.write(state.exp.wl[i].name)
@@ -208,7 +208,7 @@ def page_results(state):
     co=list(st.beta_columns(2))
     with open('./results.pkl', 'rb') as output:
         results=pickle.load(output)
-    results_string=[result.exp.name+' : pos '+str(result.pos) for result in results]
+    results_string=[result.exp.name.split('\\')[-1]+' : pos '+str(result.pos) for result in results]
     exp_to_modif=co[0].selectbox('Experiment to delete',range(len(results_string)),format_func=lambda i:results_string[i])
     if co[1].button('Delete this experiment'):
         with open('./results.pkl', 'wb') as output:
@@ -410,7 +410,7 @@ def plot_values(state):
     pro=['Retracting','Protruding']
     prot=co[1].selectbox('Protruding or retracting',[0,1],format_func=lambda i:pro[i]) 
 
-    results_string=[result.exp.name.split('/')[-1]+' : pos '+str(result.pos) for result in results if result.channel.name==chan and result.prot==prot]
+    results_string=[result.exp.name.split('\\')[-1]+' : pos '+str(result.pos) for result in results if result.channel.name==chan and result.prot==prot]
     results_name=[result.exp.name+str(result.pos) for result in results if result.channel.name==chan and result.prot==prot]
     expe=co[0].multiselect('Experiments not to plot',range(len(results_string)),format_func=lambda i:results_string[i])
     expe_name=[results_name[i] for i in expe]
