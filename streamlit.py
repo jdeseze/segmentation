@@ -23,6 +23,8 @@ import copy
 import plotly.express as px
 import plotly.graph_objects as go
 import plotly.offline as py
+import tkinter as tk
+from tkinter import filedialog
 
 def main():
     st.set_page_config(page_title="Segmentation", page_icon=":microscope:",layout="wide")
@@ -38,12 +40,20 @@ def main():
         page=st.selectbox('Choose page',tuple(pages.keys()))
         
         with st.beta_expander('Choose experiment'):
-            state.file_dir=st.text_input('File directory',"E:/optorhoa/201210_RPE1_optoRhoa_RBDiRFP/")
+            
+            # Folder picker button
+            root = tk.Tk()
+            root.withdraw()
+            root.wm_attributes('-topmost', 1)
+            clicked = st.button('Please select a folder:')
+            
+            if clicked:
+                state.file_dir = st.text_input('Selected folder:', filedialog.askdirectory(master=root))
             try:
                 state.filename=file_selector(state.file_dir)
             except:
                 state.filename=None
-                st.write("No such directory or no .nd file in this directory")
+                st.write("Choose a directory (or no .nd file in this directory)")
             
             if st.button('Clear state'):
                 state.clear()            
