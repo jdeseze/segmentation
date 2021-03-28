@@ -428,11 +428,14 @@ def plot_values(state):
     if st.checkbox('Plot') and len(zones)>0:    
         st.write(len(results))
         res=Result_array([result for result in results if not (result.exp.name+str(result.pos) in expe_name)])
+        plt.style.use('dark_background')
         fig, ax = plt.subplots()
         ax.spines["top"].set_visible(False)     
         ax.spines["bottom"].set_visible(True)    
         ax.spines["right"].set_visible(False)    
-        ax.spines["left"].set_visible(True)
+        ax.spines["left"].set_visible(True) 
+        fig.set_facecolor('black')
+        ax.set_facecolor('black')
         colors=['blue','red','green']
         for i in range(len(zones)):
             plot_options={"color":colors[i]}

@@ -136,11 +136,11 @@ class Result_array(list):
         
         return toplot
     
-    def plot_mean(self,zone='act',wl_name="TIRF 561",time_step=15,prot=True,plot_options={}):
+    def plot_mean(self,zone='act',wl_name="TIRF 561",time_step=30,prot=True,plot_options={}):
         #time step should be in minutes
 
         t_start=0
-        t_end=len(self[0].get_zone(zone))
+        t_end=61#min(len(self[i].get_zone(zone)) for i in range(len(self)))
         for result in self:
             if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot:
                 values=result.get_zone(zone)
