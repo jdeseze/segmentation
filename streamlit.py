@@ -108,7 +108,7 @@ def page_measures(state):
                         mask=np.zeros((size_img[1],size_img[0]))
                         mask[y:y+l,x:x+w]=1
                         state.rgn=mask
-                        contour=np.zeros(size_img)
+                        contour=np.zeros((size_img[1],size_img[0]))
                         contour[y:y+l,x]=1
                         contour[y:y+l,x+w]=1
                         contour[y,x:x+w]=1
