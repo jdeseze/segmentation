@@ -105,7 +105,7 @@ def page_measures(state):
                         x,y=int(line[2].split(' ')[1]),int(line[2].split(' ')[2])
                         w,l=int(line[6].split(' ')[2]),int(line[6].split(' ')[3])
                         size_img=exp.get_sizeimg()
-                        mask=np.zeros(size_img)
+                        mask=np.zeros((size_img[1],size_img[0]))
                         mask[y:y+l,x:x+w]=1
                         state.rgn=mask
                         contour=np.zeros(size_img)
