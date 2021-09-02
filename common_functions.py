@@ -26,12 +26,14 @@ class WL:
         self.step=step
 
 class Exp:
-    def __init__(self,expname,wl=[],nbpos=1,nbtime=1):
+
+    def __init__(self,expname,wl=[],nbpos=1,nbtime=1,comments=[]):
         self.name=expname
         self.nbpos=nbpos
         self.nbtime=nbtime
         self.wl=wl
         self.nbwl=len(wl)
+        self.commments=comments
         if self.nbtime==1:
             self.timestep=0
         else:
@@ -84,7 +86,7 @@ class Result:
         self.background=background
     
     def plot(self,zone='act',plot_options=None):
-        toplot=np.array(self.get_zone(zone))
+        toplot=self.get_zone(zone)#running_mean(self.get_zone(zone),4)
         toplot[toplot==0]=math.nan
         toplot=(toplot-self.background)/(np.mean(toplot[0])-self.background)
         if not plot_options:
@@ -100,7 +102,7 @@ class Result:
         return abs_value
     
     def xy2plot(self,zone='act',plot_options=None):
-        toplot=np.array(self.get_zone(zone))
+        toplot=self.get_zone(zone)#running_mean(self.get_zone(zone),4)
         toplot[toplot==0]=math.nan
         toplot=(toplot-self.background)/(np.mean(toplot[0])-self.background)
         if not plot_options:
@@ -114,7 +116,10 @@ class Result:
         if zone=='notact':
             return self.notact
         if zone=='whole':
-            return self.whole
+            return 'whole'
+    
+    def name(self):
+        return self.exp.name.split('\\')[-1]+' : pos '+str(self.pos)
     
         
 class Result_array(list):
@@ -132,26 +137,34 @@ class Result_array(list):
         for res in self:
             if res.channel.name==wl_name and res.prot==prot:
                 x,y=res.xy2plot(zone)            
-                toplot.append(go.Scatter(x=x,y=y,mode='lines',line_color=colors[zones==zone][0],name=str(res.exp.nbpos)))
-        
+                toplot.append(go.Scatter(x=x,y=y,mode='lines',line_color=colors[zones==zone][0],name=res.name()))
         return toplot
     
     def plot_mean(self,zone='act',wl_name="TIRF 561",time_step=30,prot=True,plot_options={}):
         #time step should be in minutes
 
         t_start=0
-        t_end=61#min(len(self[i].get_zone(zone)) for i in range(len(self)))
+        t_end=min((len(result.get_zone(zone))-1)*result.exp.timestep for result in self if result.channel.name==wl_name)
+        nbsteps=min(len(result.get_zone(zone)) for result in self)
+        interp=[]
         for result in self:
             if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot:
                 values=result.get_zone(zone)
+                tstep=result.exp.timestep
+                normvals=(np.array(result.get_zone(zone))-result.background)/(np.mean(np.array(result.get_zone(zone))[0])-result.background)
+                lasttime=len(normvals)*tstep-0.001
+                times=np.arange(0,lasttime,tstep)
+                
                 if sum(np.array(values)==0)>0:
-                    t_endtemp=values.index(next(filter(lambda x: x==0, values)))
-                    if t_endtemp<t_end:
-                        t_end=t_endtemp
+                    f_endtemp=list(values).index(next(filter(lambda x: x==0, values)))
+                    normvals=normvals[0:f_endtemp]
+                    times=np.arange(0,(f_endtemp)*result.exp.timestep,tstep)
+                    if f_endtemp*result.exp.timestep<t_end:
+                        t_end=times[-1]
 
-        values=[(np.array(result.get_zone(zone))-result.background)/(np.mean(np.array(result.get_zone(zone))[0])-result.background) for result in self if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot]
-        x=np.arange(t_start,t_end)*time_step/60
-        interp=[interp1d(x,yi[t_start:t_end]) for yi in values]
+                interp.append(interp1d(times,normvals))
+                
+        x=np.arange(t_start,t_end,int((t_end-t_start)/nbsteps))
         y=np.vstack([f(x) for f in interp])
         
         ym=np.average(y, axis=0)
@@ -162,14 +175,15 @@ class Result_array(list):
         
         #clear_plot(size)
         
-        plt.plot(x,ym,linewidth=2,**plot_options)
+        plt.plot(x/60,ym,linewidth=2,**plot_options)
 
-        plt.plot(x,yh,linewidth=0.05,**plot_options)
-        plt.plot(x,yb,linewidth=0.05,**plot_options)
-        plt.fill_between(x,yh,yb,alpha=0.2,**plot_options)
+        plt.plot(x/60,yh,linewidth=0.05,**plot_options)
+        plt.plot(x/60,yb,linewidth=0.05,**plot_options)
+        plt.fill_between(x/60,yh,yb,alpha=0.2,**plot_options)
 
 def image_with_seg(img1,contour):
     fig1,ax = plt.subplot()
+    
     #original image
     a=plt.imshow(img1,cmap='gray')
     #find mask and contour
@@ -249,7 +263,7 @@ def get_exp(filename):
         
         expname=filename.rstrip('.nd')
         
-        return Exp(expname,wl,nb_pos,nb_tp)
+        return Exp(expname,wl,nb_pos,nb_tp,comments)
 
 def image_show(image, nrows=1, ncols=1, cmap='gray'):
     fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize=(14, 14))
@@ -302,3 +316,6 @@ def circle_points(resolution, center, radius):
 
     return np.array([c, r]).T
 
+def running_mean(x, N):
+    cumsum = np.cumsum(np.insert(x, 0, 0)) 
+    return (cumsum[N:] - cumsum[:-N]) / N
