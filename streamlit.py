@@ -193,7 +193,10 @@ def page_text_file():
             [st.write(line) for line in output.readlines()]
 
 def new_exp():
-    st.session_state['exp']=get_exp(st.session_state.filename)
+    try:
+        st.session_state['exp']=get_exp(st.session_state.filename)
+    except:
+        st.write('unable to load experiment')
                 
 def page_results():
     
