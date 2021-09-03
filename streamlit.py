@@ -376,7 +376,7 @@ def write_on_text_file(results,output):
         output.write('Channel: '+str(result.channel.name)+' \n')
         output.write('Background value: '+str(result.background)+' \n')
         output.write('Activated zone: '+str(result.act)+' \n')
-        output.write('Not activated zone: '+str(result.act)+' \n')
+        output.write('Not activated zone: '+str(result.notact)+' \n')
         output.write('\n')
         
     
