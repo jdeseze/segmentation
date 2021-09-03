@@ -25,6 +25,7 @@ import plotly.offline as py
 import tkinter as tk
 from tkinter import filedialog
 import glob
+import sys
 
 def main():
     st.set_page_config(page_title="Segmentation", page_icon=":microscope:",layout="wide")
@@ -188,9 +189,6 @@ def page_measures():
                     st.write(st.session_state.exp.wl[i].name)
                     st.image(st.session_state.img[i], use_column_width=True)
 
-def page_text_file():
-        with open('./results.txt', 'r') as output:
-            [st.write(line) for line in output.readlines()]
 
 def new_exp():
     try:
@@ -211,6 +209,8 @@ def page_results():
                 results=pickle.load(output)           
             with open('./results.pkl', 'wb') as output:
                 pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL) 
+            with open('./results.txt', 'w') as output:
+                write_on_text_file(results,output)   
     
     plot_values()        
     
@@ -233,6 +233,10 @@ def page_results():
             pickle.dump(copy.deepcopy(results), output, pickle.HIGHEST_PROTOCOL)    
         with open(st.session_state.file_dir.replace("\\","/")+'/'+filenametosave+'.txt', 'w') as output:
             write_on_text_file(results,output)   
+
+def page_text_file():
+        with open('./results.txt', 'r') as output:
+            [st.write(line) for line in output.readlines()]
 
 def create_image(i):
 
@@ -424,8 +428,14 @@ def plot_values():
             ax.spines["right"].set_visible(False)    
             ax.spines["left"].set_visible(True) 
             for i in range(len(zones)):
-                plot_options={"color":colors[i]}
-                res.plot_mean(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
+                try:
+                    st.write(zones[i])
+                    plot_options={"color":colors[i]}
+                    res.plot_mean(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
+                except:
+                    st.write('cannot plot the means: no datas? problem in the datas?')
+                    st.write('theoretical number of data :'+ str(len(res)))
+                    st.write("Unexpected error:", sys.exc_info()[0])
             co[1].pyplot(fig)
         
             plotly_fig=go.Figure()

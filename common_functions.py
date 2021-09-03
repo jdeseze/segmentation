@@ -88,7 +88,7 @@ class Result:
     def plot(self,zone='act',plot_options=None):
         toplot=self.get_zone(zone)#running_mean(self.get_zone(zone),4)
         toplot[toplot==0]=math.nan
-        toplot=(toplot-self.background)/(np.mean(toplot[0])-self.background)
+        toplot=(np.array(toplot)-self.background)/(toplot[0]-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
@@ -112,11 +112,11 @@ class Result:
     
     def get_zone(self,zone):
         if zone=='act':
-            return self.act
+            return np.array(self.act)
         if zone=='notact':
-            return self.notact
+            return np.array(self.notact)
         if zone=='whole':
-            return 'whole'
+            return np.array(self.whole)
     
     def name(self):
         return self.exp.name.split('\\')[-1]+' : pos '+str(self.pos)
