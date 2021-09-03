@@ -235,8 +235,12 @@ def page_results():
             write_on_text_file(results,output)   
 
 def page_text_file():
-        with open('./results.txt', 'r') as output:
-            [st.write(line) for line in output.readlines()]
+    with open('./results.pkl', 'rb') as output:
+            results=pickle.load(output)
+    with open('./results.txt','w') as output:
+            write_on_text_file(results,output)
+    with open('./results.txt', 'r') as output:
+        [st.write(line) for line in output.readlines()]
 
 def create_image(i):
 
@@ -393,7 +397,7 @@ def plot_values():
     
     co=list(st.columns(2))
     chans=[st.session_state.exp.wl[i].name for i in range(len(st.session_state.exp.wl))]
-    chan=co[0].selectbox('Channels to plot',chans,key='toplot')
+    chan=co[0].selectbox('Channel to plot',chans,key='toplot')
     zones=co[1].multiselect('Zones to plot',['act','notact','whole'])
 # =============================================================================
 #     pro=['Retracting','Protruding']
