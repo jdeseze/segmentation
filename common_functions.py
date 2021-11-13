@@ -20,6 +20,14 @@ import math
 import plotly.express as px
 import plotly.graph_objects as go
 
+import napari
+from glob import glob
+from skimage.io import imread
+from skimage.io.collection import alphanumeric_key
+from dask import delayed
+import dask.array as da
+
+
 class WL:
     def __init__(self,name,step=1):
         self.name=name
@@ -88,7 +96,7 @@ class Result:
     def plot(self,zone='act',plot_options=None):
         toplot=self.get_zone(zone)#running_mean(self.get_zone(zone),4)
         toplot[toplot==0]=math.nan
-        toplot=(np.array(toplot)-self.background)/(toplot[0]-self.background)
+        toplot=(np.array(toplot)-self.background)-(toplot[0]-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
@@ -104,7 +112,7 @@ class Result:
     def xy2plot(self,zone='act',plot_options=None):
         toplot=self.get_zone(zone)#running_mean(self.get_zone(zone),4)
         toplot[toplot==0]=math.nan
-        toplot=(toplot-self.background)/(np.mean(toplot[0])-self.background)
+        toplot=(toplot)#-self.background)-(np.mean(toplot[0])-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60
@@ -140,14 +148,14 @@ class Result_array(list):
                 toplot.append(go.Scatter(x=x,y=y,mode='lines',line_color=colors[zones==zone][0],name=res.name()))
         return toplot
     
-    def plot_mean(self,zone='act',wl_name="TIRF 561",time_step=30,prot=True,plot_options={}):
+    def plot_mean(self,zone='act',wl_name="TIRF 561",prot=True,plot_options={}):
         #time step should be in minutes
 
         t_start=0
         t_end=min((len(result.get_zone(zone))-1)*result.exp.timestep for result in self if result.channel.name==wl_name)
         nbsteps=min(len(result.get_zone(zone)) for result in self)
         interp=[]
-        for result in self:
+        for result in self: 
             if result.channel.name==wl_name and (not math.isnan(np.sum(result.get_zone(zone)))) and result.prot==prot:
                 values=result.get_zone(zone)
                 tstep=result.exp.timestep
@@ -261,7 +269,7 @@ def get_exp(filename):
                 wl[int(sep[1])-1].step=int(sep[3])-int(sep[2])
             line=file.readline()
         
-        expname=filename.rstrip('.nd')
+        expname=filename.rstrip('d').rstrip('n').rstrip('.')
         
         return Exp(expname,wl,nb_pos,nb_tp,comments)
 
@@ -319,3 +327,21 @@ def circle_points(resolution, center, radius):
 def running_mean(x, N):
     cumsum = np.cumsum(np.insert(x, 0, 0)) 
     return (cumsum[N:] - cumsum[:-N]) / N
+
+
+def view_in_napari(filename=r"F:\optorhoa\201208_RPE_optoRhoA_PAKiRFP\cell2s_50msact_1_w2TIRF 561_t*.tif"):
+    filenames = sorted(glob(filename),key=alphanumeric_key)
+
+    sample = imread(filenames[0])
+    
+    lazy_imread = delayed(imread)  # lazy reader
+    lazy_arrays = [lazy_imread(fn) for fn in filenames]
+    dask_arrays = [
+        da.from_delayed(delayed_reader, shape=sample.shape, dtype=sample.dtype)
+        for delayed_reader in lazy_arrays
+    ]
+    # Stack into one large dask.array
+    stack = da.stack(dask_arrays, axis=0)
+    stack.shape  # (nfiles, nz, ny, nx)
+    
+    viewer=napari.view_image(stack, contrast_limits=[0,2000],name='561')  

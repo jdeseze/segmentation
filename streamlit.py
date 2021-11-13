@@ -49,8 +49,10 @@ def main():
             clicked = st.button('Please select a folder:')
             
             if clicked:
+                #selction of a folder
                 st.session_state.file_dir = st.text_input('Selected folder:', filedialog.askdirectory(master=root))
             try:
+                #list of experiments in the file_dir
                 st.session_state.filename=file_selector(st.session_state.file_dir)
             except:
                 st.session_state.filename=None
@@ -103,16 +105,17 @@ def page_measures():
                         with open(rgn_file) as file:
                             line=file.readline().rstrip().split(', ')
                             x,y=int(line[2].split(' ')[1]),int(line[2].split(' ')[2])
+                            #x,y=int(line[2].split(' ')[1])-512,int(line[2].split(' ')[2])-512
                             w,l=int(line[6].split(' ')[2]),int(line[6].split(' ')[3])
                             size_img=st.session_state.exp.get_sizeimg()
                             mask=np.zeros((size_img[1],size_img[0]))
-                            mask[y:y+l,x:x+w]=1
+                            mask[y:y+l,x*(x>0):x+w]=1
                             st.session_state.rgn=mask
                             contour=np.zeros((size_img[1],size_img[0]))
-                            contour[y:y+l,x]=1
-                            contour[y:y+l,x+w]=1
-                            contour[y,x:x+w]=1
-                            contour[y+l,x:x+w]=1
+                            contour[y:y+l,x*(x>0)]=1
+                            contour[y:y+l,(x+w)]=1
+                            contour[y,x*(x>0):x+w]=1
+                            contour[y+l,x*(x>0):x+w]=1
                             st.session_state.rgn_contour=contour
                             st.session_state.isrgn=True
                             st.session_state.new_exp=True
@@ -125,13 +128,28 @@ def page_measures():
             with st.expander('Measures and movie'):
                 inds=range(len(st.session_state.exp.wl))
                 st.session_state.wls_meas=st.multiselect('Measurement channel',inds,format_func=lambda i: st.session_state.exp.wl[i].name,key='meas')
+                st.write(st.session_state.wls_meas)
                 st.session_state.prot=st.checkbox('Makes protrusions?')
                 #st.write(st.session_state.wl_meas)
                 if st.button("Compute and save results"):
                     #st.write(int(st.session_state.exp.nbtime/st.session_state.exp.wl[wl].step)*st.session_state.exp.wl[wl].step)
-                    #threading.Thread(target=compute).start() 
-                    compute()
+                    exp=get_exp(st.session_state.filename)
+                    wls_meas=st.session_state.wls_meas
+                    prot=st.session_state.prot
+                    coeff=st.session_state.coeff_seg
+                    stepseg=exp.wl[st.session_state.wl_seg].step
+                    if st.session_state.draw:
+                        mask_act=np.array(Image.fromarray(st.session_state.mask_act).resize((img.shape[0],img.shape[1])))>0
+                    else:
+                        mask_act=copy.deepcopy(st.session_state.rgn)
+                    pos, coeff_seg,  wl_seg=st.session_state.pos, st.session_state.coeff_seg,  st.session_state.wl_seg
+                    threading.Thread(target=compute,args=[wls_meas,prot,pos,coeff,stepseg,mask_act,coeff_seg,wl_seg,exp]).start() 
+                    #compute()
                 
+# =============================================================================
+#                 if st.button('View in napari'):
+#                     view_in_napari()
+# =============================================================================
 
 # =============================================================================
 #         debug=st.sidebar.beta_expander("Debug",expanded=False)
@@ -280,38 +298,8 @@ def create_image(i):
     
     fig1.savefig('temp_wl_'+str(i)+'.png',bbox_inches="tight")
 
-
-
-# =============================================================================
-# def last_col(st.session_state):
-#     inds=range(len(st.session_state.exp.wl))
-#     st.session_state.wls_meas=st.multiselect('Measurement channel',inds,format_func=lambda i: st.session_state.exp.wl[i].name,key='meas')
-#     st.session_state.prot=st.checkbox('Makes protrusions?')
-#     #st.write(st.session_state.wl_meas)
-#     if st.button("Compute and save results"):
-#         #st.write(int(st.session_state.exp.nbtime/st.session_state.exp.wl[wl].step)*st.session_state.exp.wl[wl].step)
-#         threading.Thread(target=save_results,args=[st.session_state]).start()    
-#     
-#     st.session_state.crop=st.checkbox('Crop')
-#     if st.button('Make movies'):
-#         th=threading.Thread(target=make_all_movies,args=[st.session_state]) 
-#         th.start()
-# =============================================================================
-
     
-def compute():
-    exp=get_exp(st.session_state.filename)
-    wls_meas=st.session_state.wls_meas
-    prot=st.session_state.prot
-    pos=st.session_state.pos
-    coeff=st.session_state.coeff_seg
-    stepseg=exp.wl[st.session_state.wl_seg].step
-    if st.session_state.draw:
-        mask_act=np.array(Image.fromarray(st.session_state.mask_act).resize((img.shape[0],img.shape[1])))>0
-    else:
-        mask_act=copy.deepcopy(st.session_state.rgn)
-        
-    pos, coeff_seg,  wl_seg=st.session_state.pos, st.session_state.coeff_seg,  st.session_state.wl_seg
+def compute(wls_meas,prot,pos,coeff,stepseg,mask_act,coeff_seg,wl_seg,exp):
     for wl_meas in wls_meas:
         whole=[]
         act=[]  
@@ -425,6 +413,7 @@ def plot_values():
             for i in range(len(zones)):
                 plot_options={"color":colors[i]}
                 res.plot(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
+            co[0].write(['Contracting','Protruding'][prot])
             co[0].pyplot(fig)
             fig, ax = plt.subplots()
             ax.spines["top"].set_visible(False)    
@@ -433,13 +422,13 @@ def plot_values():
             ax.spines["left"].set_visible(True) 
             for i in range(len(zones)):
                 try:
-                    st.write(zones[i])
                     plot_options={"color":colors[i]}
                     res.plot_mean(zone=zones[i],wl_name=chan,prot=prot,plot_options=plot_options)
                 except:
                     st.write('cannot plot the means: no datas? problem in the datas?')
                     st.write('theoretical number of data :'+ str(len(res)))
                     st.write("Unexpected error:", sys.exc_info()[0])
+            co[1].write(['Contracting','Protruding'][prot])
             co[1].pyplot(fig)
         
             plotly_fig=go.Figure()
