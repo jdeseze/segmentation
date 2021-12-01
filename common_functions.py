@@ -68,6 +68,14 @@ class Exp:
                     self.timestep=(time2-time1)/self.nbtime
     
     #use this if the stack was not build 
+    def get_image(self,wl_ind,pos=1,timepoint=1,sub_folder=''):
+        if self.stacks:
+            I=Image.open(self.get_image_name(wl_ind,pos=1,timepoint=1,sub_folder=''))
+            I.seek(timepoint-1)
+            return I
+        else:
+            return Image.open(self.get_image_name(wl_ind,pos=1,timepoint=1,sub_folder=''))
+        
     def get_image_name(self,wl_ind,pos=1,timepoint=1,sub_folder=''):
         if self.nbtime==1:
             tpstring=''
@@ -77,7 +85,10 @@ class Exp:
             posstring=''
         else:
             posstring='_s'+str(pos)
-        return '\\'.join(self.name.split('/')[0:-1]+[self.name.split('/')[-1]])+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'    
+        if self.stacks:
+            return self.get_stack_name(wl_ind,pos)
+        else:    
+            return '\\'.join(self.name.split('/')[0:-1]+[self.name.split('/')[-1]])+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'    
         #return self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'
    
     #use this if there is only the stack, in the "Stacks" folder
@@ -92,7 +103,7 @@ class Exp:
         timepoint=1
         if self.stacks:
             I=Image.open(self.get_stack_name(wl_ind,pos))
-            I.seek(timepoint)
+            I.seek(timepoint-1)
             return I
         else:
             return Image.open(self.get_image_name(wl_ind,pos,timepoint))
@@ -101,7 +112,7 @@ class Exp:
         last_ind=int(self.nbtime/self.wl[wl_ind].step-1)*self.wl[wl_ind].step+1
         if self.stacks:
             I=Image.open(self.get_stack_name(wl_ind,pos))
-            I.seek(timepoint)
+            I.seek(timepoint-1)
             return I
         else:        
             return Image.open(self.get_image_name(wl_ind,pos,last_ind))
@@ -145,7 +156,7 @@ class Result:
     def xy2plot(self,zone='act',plot_options=None):
         toplot=self.get_zone(zone)#running_mean(self.get_zone(zone),4)
         toplot[toplot==0]=math.nan
-        toplot=(toplot)#-self.background)-(np.mean(toplot[0])-self.background)
+        toplot=((toplot)-self.background)-(np.mean(toplot[0])-self.background)
         if not plot_options:
             plot_options={}            
         x=(np.arange(toplot.size))*self.channel.step*self.exp.timestep/60

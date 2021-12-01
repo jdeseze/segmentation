@@ -139,7 +139,7 @@ def page_measures():
                     coeff=st.session_state.coeff_seg
                     stepseg=exp.wl[st.session_state.wl_seg].step
                     if st.session_state.draw:
-                        mask_act=np.array(Image.fromarray(st.session_state.mask_act).resize((img.shape[0],img.shape[1])))>0
+                        mask_act=np.array(Image.fromarray(st.session_state.mask_act).resize((st.session_state.shape[1],st.session_state.shape[0])))>0
                     else:
                         mask_act=copy.deepcopy(st.session_state.rgn)
                     pos, coeff_seg,  wl_seg=st.session_state.pos, st.session_state.coeff_seg,  st.session_state.wl_seg
@@ -176,7 +176,7 @@ def page_measures():
     #Create columns only if experiment is loaded
     if col is not None:
         
-        for i in range(len(st.session_state.exp.wl)):
+        for i,wl in enumerate(st.session_state.exp.wl):
                 
             #checking if I should update the temporary image
             
@@ -201,7 +201,7 @@ def page_measures():
             
             #displaying intermediate columns
             with col[int(i/2)]:
-                if st.session_state.draw and (i==3):
+                if st.session_state.draw and (wl.name=='sola GFP'):
                     make_canvas(i)
                 else:
                     st.write(st.session_state.exp.wl[i].name)
@@ -307,7 +307,10 @@ def compute(wls_meas,prot,pos,coeff,stepseg,mask_act,coeff_seg,wl_seg,exp):
         result=Result(exp,prot,wl_meas,pos)
         stepmeas=exp.wl[wl_meas].step
         nb_img=int(exp.nbtime/stepmeas)
-        img4thresh=np.array(Image.open(exp.get_image_name(wl_seg,pos,1)))
+        
+        #open differently if it's a stack or not
+
+        img4thresh=np.array(exp.get_image(wl_seg,pos,1))
         filtered4thresh=filters.median(img4thresh)
         thresh = filters.threshold_otsu(filtered4thresh)
         
@@ -316,12 +319,14 @@ def compute(wls_meas,prot,pos,coeff,stepseg,mask_act,coeff_seg,wl_seg,exp):
             timg=i*stepmeas+1
             tseg=int(i*stepmeas/stepseg)*stepseg+1
             #calculate mask of segmentation
-            img2seg=np.array(Image.open(exp.get_image_name(wl_seg,pos,tseg)))
+            img2seg=np.array(exp.get_image(wl_seg,pos,tseg))
             filtered=filters.median(img2seg)
             mask_seg, contours=segment_threshold(filtered,coeff*thresh)  
             
             #take values in current image
-            img=np.array(Image.open(exp.get_image_name(wl_meas,pos,timg)))
+
+            img=np.array(exp.get_image(wl_meas,pos,timg))
+    
             whole_int=np.sum(img[mask_seg>0])
             whole_surf=np.sum(mask_seg>0)
             act_int=np.sum(img[(mask_act>0)*(mask_seg>0)])
@@ -444,6 +449,7 @@ def plot_values():
 
 def make_canvas(i):
     img=np.array(st.session_state.exp.get_last_image(i,st.session_state.pos))
+    st.session_state.shape=img.shape
     st.write(img.shape)
     size_fig=(img.shape[0]/5,img.shape[1]/5)
     fig1 = plt.figure(figsize=size_fig, dpi=1)
@@ -471,8 +477,8 @@ def make_canvas(i):
         drawing_mode="rect",
         key="canvas",
     )
-    st.session_state.exp.mask_act=np.mean(canvas_result.image_data,axis=2)>0
-    plt.imshow(st.session_state.exp.mask_act,cmap='gray')
+    st.session_state.mask_act=np.mean(canvas_result.image_data,axis=2)>0
+    plt.imshow(st.session_state.mask_act,cmap='gray')
     fig1.savefig('mask.png',bbox_inches="tight",pad_inches = 0)
     
 
