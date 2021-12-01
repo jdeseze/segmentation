@@ -46,19 +46,29 @@ class Exp:
             self.timestep=0
         else:
             maxwl_ind=min(list(range(self.nbwl)), key=lambda ind:self.wl[ind].step)
-            with open(self.get_image_name(maxwl_ind,timepoint=1), 'rb') as opened:
-                tags = exifread.process_file(opened)
-                time_str=tags['Image DateTime'].values
-                h, m, s = time_str.split(' ')[1].split(':')
-                time1=int(h) * 3600 + int(m) * 60 + float(s)
-            with open(self.get_image_name(maxwl_ind,timepoint=int((nbtime-1)/self.wl[maxwl_ind].step+1)), 'rb') as opened:
-                tags = exifread.process_file(opened)
-                time_str=tags['Image DateTime'].values
-                h, m, s = time_str.split(' ')[1].split(':')
-                time2=int(h) * 3600 + int(m) * 60 + float(s)
-            self.timestep=(time2-time1)/self.nbtime
+            try:
+                open(self.get_image_name(maxwl_ind,timepoint=1), 'rb')
+                self.stacks=False
+            except:
+                self.stacks=True
+            if self.stacks:
+                #print(self.get_stack_name(maxwl_ind))
+                self.timestep=10
+            else:
+                with open(self.get_image_name(maxwl_ind,timepoint=1), 'rb') as opened:
+                    tags = exifread.process_file(opened)
+                    time_str=tags['Image DateTime'].values
+                    h, m, s = time_str.split(' ')[1].split(':')
+                    time1=int(h) * 3600 + int(m) * 60 + float(s)
+                with open(self.get_image_name(maxwl_ind,timepoint=int((nbtime-1)/self.wl[maxwl_ind].step+1)), 'rb') as opened:
+                    tags = exifread.process_file(opened)
+                    time_str=tags['Image DateTime'].values
+                    h, m, s = time_str.split(' ')[1].split(':')
+                    time2=int(h) * 3600 + int(m) * 60 + float(s)
+                    self.timestep=(time2-time1)/self.nbtime
     
-    def get_image_name(self,wl_ind,pos=1,timepoint=1):
+    #use this if the stack was not build 
+    def get_image_name(self,wl_ind,pos=1,timepoint=1,sub_folder=''):
         if self.nbtime==1:
             tpstring=''
         else:
@@ -67,18 +77,41 @@ class Exp:
             posstring=''
         else:
             posstring='_s'+str(pos)
-        return self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'
+        return '\\'.join(self.name.split('/')[0:-1]+[self.name.split('/')[-1]])+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'    
+        #return self.name+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+tpstring+'.tif'
+   
+    #use this if there is only the stack, in the "Stacks" folder
+    def get_stack_name(self,wl_ind,pos=1,sub_folder='Stacks'):
+        if self.nbpos==1:
+            return '\\'.join(self.name.split('\\')[0:-1]+[sub_folder]+[self.name.split('\\')[-1]])+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+'.tif'
+        else:
+            posstring='_s'+str(pos)
+            return '\\'.join(self.name.split('\\')[0:-1]+[sub_folder]+[self.name.split('\\')[-1]])+'_w'+str(wl_ind+1)+self.wl[wl_ind].name+posstring+'.tif'
     
     def get_first_image(self,wl_ind,pos=1,timepoint=''):
         timepoint=1
-        return Image.open(self.get_image_name(wl_ind,pos,timepoint))
+        if self.stacks:
+            I=Image.open(self.get_stack_name(wl_ind,pos))
+            I.seek(timepoint)
+            return I
+        else:
+            return Image.open(self.get_image_name(wl_ind,pos,timepoint))
     
     def get_last_image(self,wl_ind,pos=1,timepoint=1):
         last_ind=int(self.nbtime/self.wl[wl_ind].step-1)*self.wl[wl_ind].step+1
-        return Image.open(self.get_image_name(wl_ind,pos,last_ind))
+        if self.stacks:
+            I=Image.open(self.get_stack_name(wl_ind,pos))
+            I.seek(timepoint)
+            return I
+        else:        
+            return Image.open(self.get_image_name(wl_ind,pos,last_ind))
     
     def get_sizeimg(self):
         return self.get_first_image(0).size
+    
+    def disp_message(self):
+        return self.get_stack_name(0)
+    
 
 class Result:
     def __init__(self, exp,prot,wl_ind,pos,startacq=0,act=[],notact=[],whole=[],background=0):
